@@ -14,12 +14,7 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-use super::fs::{Mode, OFlags};
-use crate::{
-    fs::openat,
-    io::{self, pread, proc_self, OwnedFd},
-};
-use cstr::cstr;
+use crate::io::{self, pread, proc_self_auxv};
 use std::{
     ffi::CStr,
     mem::{align_of, size_of},
@@ -294,13 +289,9 @@ unsafe fn init_from_auxv(elf_auxv: *const Elf_auxv_t) -> Option<Vdso> {
 
 // Find the `AT_SYSINFO_EHDR` in auxv records in /proc/self/auxv.
 fn init_from_proc_self_auxv() -> Option<Vdso> {
-    let auxv: OwnedFd = match openat(
-        &proc_self().ok()?.0,
-        cstr!("auxv"),
-        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NOCTTY | OFlags::NOATIME,
-        Mode::empty(),
-    ) {
-        Ok(file) => file.into(),
+    // Open /proc/self/auxv and check that it's what we think it is.
+    let auxv = match proc_self_auxv() {
+        Ok(file) => file,
         Err(_err) => return None,
     };
 
@@ -333,6 +324,8 @@ fn init_from_proc_self_auxv() -> Option<Vdso> {
         )
     };
 
+    // Iterate over the auxv records until we find AT_SYSINFO_EHDR, which
+    // points to the vDSO ELF header.
     let mut offset = 0;
     loop {
         match pread(&auxv, byte_slice, offset) {

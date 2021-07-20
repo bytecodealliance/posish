@@ -69,6 +69,9 @@ pub use stdio::{stderr, stdin, stdout, take_stderr, take_stdin, take_stdout};
 #[cfg(any(linux_raw, all(libc, any(target_os = "android", target_os = "linux"))))]
 pub use userfaultfd::{userfaultfd, UserfaultfdFlags};
 
+#[cfg(all(linux_raw, any(target_os = "android", target_os = "linux")))]
+pub(crate) use procfs::proc_self_auxv;
+
 #[cfg(any(linux_raw, not(target_os = "wasi")))]
 pub use imp::io::Termios;
 
